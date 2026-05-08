@@ -686,7 +686,7 @@ export fn Java_com_jossephus_chuchu_service_ssh_NativeSshBridge_nativeOpenShell(
         setError(session, "Not connected", .{});
         return c.JNI_FALSE;
     };
-    const term_slice = jniDupString(env, term) orelse allocator.dupe(u8, "xterm-kitty") catch return c.JNI_FALSE;
+    const term_slice = jniDupString(env, term) orelse allocator.dupe(u8, "xterm-ghostty") catch return c.JNI_FALSE;
     defer allocator.free(term_slice);
     var channel: ?*c.LIBSSH2_CHANNEL = null;
     while (channel == null) {
