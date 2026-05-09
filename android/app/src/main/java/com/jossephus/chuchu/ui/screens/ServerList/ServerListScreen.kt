@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.animation.core.Animatable
@@ -33,7 +32,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -51,6 +49,7 @@ import com.jossephus.chuchu.ui.components.ChuButton
 import com.jossephus.chuchu.ui.components.ChuButtonVariant
 import com.jossephus.chuchu.ui.components.ChuCard
 import com.jossephus.chuchu.ui.components.ChuText
+import com.jossephus.chuchu.ui.components.TuiBadge
 import com.jossephus.chuchu.ui.theme.ChuColors
 import com.jossephus.chuchu.ui.theme.ChuTypography
 
@@ -92,20 +91,23 @@ fun ServerListScreen(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                ChuText("Chuchu", style = typography.headline)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ChuText("$ ", style = typography.headline, color = colors.textMuted)
+                    ChuText("chuchu", style = typography.headline)
+                }
 
                 ChuButton(
                     onClick = onOpenSettings,
-                    variant = ChuButtonVariant.Ghost,
-                    contentPadding = PaddingValues(8.dp),
+                    variant = ChuButtonVariant.Outlined,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                 ) {
-                    ChuText("⚙", style = typography.title, color = colors.textMuted)
+                    ChuText("settings", style = typography.label, color = colors.textSecondary)
                 }
             }
 
-            SectionHeader("Active connections and saved servers")
+            SectionHeader("HOSTS")
 
             if (hosts.isEmpty()) {
                 EmptyState()
@@ -137,15 +139,28 @@ fun ServerListScreen(
             }
         }
 
-        ChuButton(
-            onClick = onAddServer,
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(16.dp)
-                .height(44.dp),
+                .padding(16.dp),
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            ChuText("Add Server", style = typography.label, color = colors.onAccent)
+            ChuButton(
+                onClick = onAddServer,
+                variant = ChuButtonVariant.Filled,
+                bracketed = true,
+                modifier = Modifier.height(44.dp),
+            ) {
+                ChuText("+ add server", style = typography.label, color = colors.onAccent)
+            }
+
+            ChuText(
+                text = "theme: ${colors.name}",
+                style = typography.labelSmall,
+                color = colors.textMuted,
+            )
         }
 
     }
@@ -153,20 +168,32 @@ fun ServerListScreen(
 
 @Composable
 private fun SectionHeader(label: String) {
-    ChuText(label, style = ChuTypography.current.label, color = ChuColors.current.textSecondary)
+    val colors = ChuColors.current
+    val typography = ChuTypography.current
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        ChuText("── ", style = typography.labelSmall, color = colors.border)
+        ChuText(label, style = typography.labelSmall, color = colors.textSecondary)
+        ChuText(" ", style = typography.labelSmall, color = colors.border)
+        Box(
+            modifier = Modifier
+                .height(1.dp)
+                .background(colors.border)
+                .fillMaxWidth(),
+        )
+    }
 }
 
 @Composable
 private fun EmptyState() {
     val colors = ChuColors.current
     val typography = ChuTypography.current
-    ChuCard {
+    ChuCard(background = colors.surfaceVariant) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            ChuText("No servers yet", style = typography.title)
+            ChuText("# no hosts configured", style = typography.body, color = colors.textMuted)
             Spacer(modifier = Modifier.height(8.dp))
             ChuText(
-                "Add your first host profile to connect quickly.",
-                style = typography.body,
+                "add your first host to connect quickly.",
+                style = typography.bodySmall,
                 color = colors.textSecondary,
             )
         }
@@ -190,19 +217,16 @@ private fun HostCard(
     val deleteThresholdPx = with(density) { 72.dp.toPx() }
     val offsetX = remember(host.id) { Animatable(0f) }
     var revealAddress by remember(host.id) { mutableStateOf(false) }
-    val cardShape = RoundedCornerShape(4.dp)
-    val activeBorderColor = colors.success.copy(alpha = 0.8f)
 
     Box(modifier = Modifier.fillMaxWidth().height(114.dp)) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(cardShape)
                 .background(if (isConnected) colors.warning.copy(alpha = 0.78f) else colors.error.copy(alpha = 0.78f))
                 .padding(end = 14.dp),
         ) {
             ChuText(
-                if (isConnected) "Disconnect" else "Delete",
+                if (isConnected) "[ disconnect ]" else "[ delete ]",
                 style = typography.label,
                 color = colors.background,
                 modifier = Modifier.align(Alignment.CenterEnd),
@@ -212,9 +236,7 @@ private fun HostCard(
         Box(
             modifier = Modifier
                 .offset { IntOffset(offsetX.value.roundToInt(), 0) }
-                .clip(cardShape)
-                .background(colors.surface)
-                .then(if (isConnected) Modifier.border(1.dp, activeBorderColor, cardShape) else Modifier)
+                .fillMaxSize()
                 .clickable(onClick = onConnect)
                 .pointerInput(host.id) {
                     detectHorizontalDragGestures(
@@ -238,28 +260,30 @@ private fun HostCard(
                     )
                 },
         ) {
-            ChuCard(modifier = Modifier.fillMaxSize()) {
+            ChuCard(
+                modifier = Modifier.fillMaxSize(),
+                background = colors.surfaceVariant,
+                border = if (isConnected) colors.success else colors.border,
+            ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        ChuText(host.name, style = typography.title)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ChuText(
+                                if (isConnected) "● " else "○ ",
+                                style = typography.title,
+                                color = if (isConnected) colors.success else colors.textMuted,
+                            )
+                            ChuText(host.name, style = typography.title)
+                        }
                         if (isConnected) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(999.dp))
-                                    .background(colors.success.copy(alpha = 0.2f))
-                                    .border(1.dp, colors.success.copy(alpha = 0.6f), RoundedCornerShape(999.dp))
-                                    .padding(horizontal = 8.dp, vertical = 2.dp),
-                            ) {
-                                ChuText(
-                                    "Connected",
-                                    style = typography.labelSmall,
-                                    color = colors.success,
-                                )
-                            }
+                            TuiBadge(
+                                text = "CONNECTED",
+                                color = colors.success,
+                            )
                         }
                     }
                     Spacer(modifier = Modifier.height(2.dp))
@@ -269,47 +293,42 @@ private fun HostCard(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         ChuText(
-                            "${host.username}@${host.host}:${host.port}",
+                            "> ${host.username}@${host.host}:${host.port}",
                             style = typography.body,
                             color = colors.textSecondary,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
                                 .clickable { revealAddress = !revealAddress }
                                 .then(if (revealAddress) Modifier else Modifier.blur(8.dp)),
                         )
                         if (host.transport == Transport.TailscaleSSH) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(999.dp))
-                                    .background(colors.accent.copy(alpha = 0.15f))
-                                    .border(1.dp, colors.accent.copy(alpha = 0.5f), RoundedCornerShape(999.dp))
-                                    .padding(horizontal = 6.dp, vertical = 1.dp),
-                            ) {
-                                ChuText(
-                                    "Tailscale",
-                                    style = typography.labelSmall,
-                                    color = colors.accent,
-                                )
-                            }
+                            TuiBadge(
+                                text = "tailscale",
+                                color = colors.accent,
+                            )
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         ChuButton(
                             onClick = onEdit,
-                            variant = ChuButtonVariant.Outlined,
+                            variant = ChuButtonVariant.Ghost,
+                            bracketed = true,
+                            borderColor = colors.textMuted,
                             testTag = "host_edit_${host.id}",
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                         ) {
-                            ChuText("Edit", style = typography.label)
+                            ChuText("edit", style = typography.label, color = colors.textMuted)
                         }
                         ChuButton(
                             onClick = onConnect,
+                            variant = ChuButtonVariant.Outlined,
+                            bracketed = true,
+                            borderColor = colors.accentSecondary,
                             testTag = "host_connect_${host.id}",
                             contentDescription = "Connect to ${host.name}",
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                         ) {
-                            ChuText("Connect", style = typography.label, color = colors.onAccent)
+                            ChuText("connect", style = typography.label, color = colors.accentSecondary)
                         }
                     }
                 }

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -58,6 +59,9 @@ internal fun ThemeSelectorSection(
     val typography = ChuTypography.current
     val context = LocalContext.current
     val availableThemes = remember { GhosttyThemeRegistry.availableThemeNames }
+    val themeByName = remember(context, availableThemes) {
+        availableThemes.associateWith { themeName -> GhosttyThemeRegistry.getTheme(context, themeName) }
+    }
     var themeQuery by remember { mutableStateOf("") }
     var expanded by remember { mutableStateOf(false) }
     val themeListState = rememberLazyListState()
@@ -77,18 +81,25 @@ internal fun ThemeSelectorSection(
         }
     }
 
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        ChuText("── ", style = typography.labelSmall, color = colors.textMuted)
+        ChuText("THEME", style = typography.labelSmall, color = colors.textMuted)
+        ChuText(" ", style = typography.labelSmall, color = colors.textMuted)
+        Box(modifier = Modifier.height(1.dp).background(colors.textMuted).fillMaxWidth())
+    }
+    Spacer(modifier = Modifier.height(12.dp))
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ChuText("Theme", style = typography.title)
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ChuText("Show preview", style = typography.label, color = colors.textSecondary)
+                ChuText("show preview", style = typography.label, color = colors.textSecondary)
                 ChuSwitch(checked = showPreview, onCheckedChange = { showPreview = it })
             }
         }
@@ -98,10 +109,13 @@ internal fun ThemeSelectorSection(
         ChuButton(
             onClick = { expanded = !expanded },
             variant = ChuButtonVariant.Outlined,
+            bracketed = true,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -126,13 +140,12 @@ internal fun ThemeSelectorSection(
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                     modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp),
                 ) {
-                    items(filteredThemes) { themeName ->
+                    items(filteredThemes, key = { it }) { themeName ->
                         val isSelected = themeName == currentTheme
-                        val rowTheme = remember(themeName) { GhosttyThemeRegistry.getTheme(context, themeName) }
+                        val rowTheme = themeByName[themeName]
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(4.dp))
                                 .background(if (isSelected) colors.surface else colors.surfaceVariant)
                                 .clickable { onThemeSelected(themeName) }
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -154,7 +167,7 @@ internal fun ThemeSelectorSection(
                                         color = if (isSelected) colors.accent else colors.textPrimary,
                                     )
                                 }
-                                if (isSelected) ChuText("✓", style = typography.label, color = colors.accent)
+                                if (isSelected) ChuText("●", style = typography.label, color = colors.accent)
                             }
                         }
                     }
@@ -170,7 +183,7 @@ private fun ThemePreview(theme: GhosttyTheme, name: String) {
     val typography = ChuTypography.current
 
     Column(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(colors.surface).padding(1.dp),
+        modifier = Modifier.fillMaxWidth().background(colors.surface).padding(1.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().background(colors.surface).padding(horizontal = 10.dp, vertical = 6.dp),
@@ -179,9 +192,9 @@ private fun ThemePreview(theme: GhosttyTheme, name: String) {
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    modifier = Modifier.width(6.dp).height(6.dp).clip(RoundedCornerShape(3.dp)).background(colors.accent),
+                    modifier = Modifier.width(6.dp).height(6.dp).background(colors.accent),
                 )
-                ChuText("PREVIEW", style = typography.labelSmall, color = colors.textSecondary)
+                ChuText("preview", style = typography.labelSmall, color = colors.textSecondary)
             }
             ChuText(name, style = typography.labelSmall, color = colors.textMuted)
         }
@@ -229,7 +242,7 @@ private fun ThemePreviewBody(theme: GhosttyTheme) {
         }
         Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             theme.palette.forEach { paletteColor ->
-                Box(modifier = Modifier.weight(1f).height(10.dp).clip(RoundedCornerShape(2.dp)).background(paletteColor))
+                Box(modifier = Modifier.weight(1f).height(10.dp).background(paletteColor))
             }
         }
     }
@@ -302,11 +315,11 @@ private fun PaletteSwatchStrip(theme: GhosttyTheme) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.clip(RoundedCornerShape(3.dp)).background(theme.background).padding(horizontal = 3.dp, vertical = 3.dp),
+        modifier = Modifier.background(theme.background).padding(horizontal = 3.dp, vertical = 3.dp),
     ) {
         SwatchIndices.forEach { idx ->
             val color: Color = theme.palette.getOrNull(idx) ?: theme.foreground
-            Box(modifier = Modifier.width(8.dp).height(12.dp).clip(RoundedCornerShape(1.dp)).background(color))
+            Box(modifier = Modifier.width(8.dp).height(12.dp).background(color))
         }
     }
 }

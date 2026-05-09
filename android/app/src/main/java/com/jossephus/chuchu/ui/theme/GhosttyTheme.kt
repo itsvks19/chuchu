@@ -101,6 +101,7 @@ fun GhosttyTheme.toChuColorPalette(): ChuColorPalette {
     val disabledText = textMuted
 
     return ChuColorPalette(
+        name = this.name,
         background = background,
         surface = surface,
         surfaceVariant = surfaceVariant,

@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,7 +29,7 @@ fun ChuDialog(
 ) {
     val colors = ChuColors.current
     val typography = ChuTypography.current
-    val shape = RoundedCornerShape(4.dp)
+    val shape = RectangleShape
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -49,10 +49,15 @@ fun ChuDialog(
                 ChuButton(
                     onClick = onDismiss,
                     variant = ChuButtonVariant.Ghost,
+                    bracketed = true,
+                    borderColor = colors.textMuted,
                 ) {
-                    ChuText(dismissLabel, style = typography.label, color = colors.accent)
+                    ChuText(dismissLabel, style = typography.label, color = colors.textMuted)
                 }
-                ChuButton(onClick = onConfirm) {
+                ChuButton(
+                    onClick = onConfirm,
+                    bracketed = true,
+                ) {
                     ChuText(confirmLabel, style = typography.label, color = colors.onAccent)
                 }
             }
