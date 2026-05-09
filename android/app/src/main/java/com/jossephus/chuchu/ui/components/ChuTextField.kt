@@ -5,10 +5,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -41,7 +43,7 @@ fun ChuTextField(
     val typography = ChuTypography.current
     val interactionSource = remember { MutableInteractionSource() }
     val focused by interactionSource.collectIsFocusedAsState()
-    val shape = RoundedCornerShape(4.dp)
+    val shape = RectangleShape
     val focusRequester = remember { FocusRequester() }
 
     // Only request focus if autoFocus is true
@@ -53,9 +55,9 @@ fun ChuTextField(
 
     Column(modifier = modifier) {
         ChuText(
-            text = label,
+            text = "> $label",
             style = typography.labelSmall,
-            color = colors.textSecondary,
+            color = if (focused) colors.accent else colors.textSecondary,
             modifier = Modifier.padding(bottom = 4.dp),
         )
         BasicTextField(
@@ -64,8 +66,11 @@ fun ChuTextField(
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester)
-                .background(colors.surface, shape)
-                .border(BorderStroke(1.dp, if (focused) colors.accent else colors.border), shape)
+                .background(if (focused) colors.surface else Color.Transparent, shape)
+                .border(
+                    BorderStroke(1.dp, if (focused) colors.accent else colors.border),
+                    shape,
+                )
                 .padding(horizontal = 10.dp, vertical = 9.dp),
             singleLine = singleLine,
             textStyle = typography.body.copy(color = colors.textPrimary),
@@ -74,13 +79,15 @@ fun ChuTextField(
             interactionSource = interactionSource,
             cursorBrush = SolidColor(colors.accent),
             decorationBox = { innerTextField ->
-                if (value.isEmpty() && placeholder.isNotBlank()) {
-                    BasicText(
-                        text = placeholder,
-                        style = typography.body.copy(color = colors.textMuted),
-                    )
+                Box {
+                    if (value.isEmpty() && placeholder.isNotBlank()) {
+                        BasicText(
+                            text = placeholder,
+                            style = typography.body.copy(color = colors.textMuted),
+                        )
+                    }
+                    innerTextField()
                 }
-                innerTextField()
             },
         )
     }

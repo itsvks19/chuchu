@@ -5,25 +5,25 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.dp
 import com.jossephus.chuchu.ui.theme.ChuColors
+import androidx.compose.ui.unit.dp
 
 @Composable
 fun ChuCard(
     modifier: Modifier = Modifier,
+    background: Color = ChuColors.current.surface,
+    border: Color = ChuColors.current.border,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val colors = ChuColors.current
-    val shape = RoundedCornerShape(4.dp)
+    val shape = RectangleShape
     Column(
         modifier = modifier
-            .clip(shape)
-            .background(colors.surface)
-            .border(BorderStroke(1.dp, colors.border), shape),
+            .background(background, shape)
+            .border(BorderStroke(1.dp, border), shape),
         content = content,
     )
 }

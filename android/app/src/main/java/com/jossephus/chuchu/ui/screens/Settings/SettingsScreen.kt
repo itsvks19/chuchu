@@ -32,8 +32,8 @@ import com.jossephus.chuchu.ui.theme.ChuColors
 import com.jossephus.chuchu.ui.theme.ChuTypography
 
 enum class SettingsCategory(val label: String) {
-    General("General"),
-    Terminal("Terminal"),
+    General("general"),
+    Terminal("terminal"),
 }
 
 @Composable
@@ -81,30 +81,39 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ChuText("Settings", style = typography.headline)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ChuText("$ ", style = typography.headline, color = colors.textMuted)
+                    ChuText("settings", style = typography.headline)
+                }
                 ChuButton(
                     onClick = onBack,
                     variant = ChuButtonVariant.Ghost,
-                    contentPadding = PaddingValues(8.dp),
+                    bracketed = true,
+                    borderColor = colors.textMuted,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                 ) {
-                    ChuText("Close", style = typography.label, color = colors.textMuted)
+                    ChuText("x", style = typography.label, color = colors.textMuted)
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
 
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 SettingsCategory.entries.forEach { category ->
                     val isSelected = category == selectedCategory
                     ChuButton(
                         onClick = { selectedCategory = category },
-                        variant = if (isSelected) ChuButtonVariant.Filled else ChuButtonVariant.Outlined,
+                        variant = ChuButtonVariant.Outlined,
+                        borderColor = if (isSelected) colors.accent else colors.border,
+                        backgroundColor = if (isSelected) colors.accent.copy(alpha = 0.12f) else null,
+                        modifier = Modifier.weight(1f),
                     ) {
                         ChuText(
                             category.label,
                             style = typography.label,
-                            color = if (isSelected) colors.onAccent else colors.textSecondary,
+                            color = if (isSelected) colors.accent else colors.textSecondary,
                         )
                     }
                 }
@@ -164,25 +173,30 @@ private fun GeneralSettings(
         onThemeSelected = onThemeSelected,
     )
     Spacer(modifier = Modifier.height(16.dp))
-    ChuText("Security", style = typography.title)
-    Spacer(modifier = Modifier.height(8.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        ChuText("── ", style = typography.labelSmall, color = colors.textMuted)
+        ChuText("SECURITY", style = typography.labelSmall, color = colors.textMuted)
+        ChuText(" ", style = typography.labelSmall, color = colors.textMuted)
+        Box(modifier = Modifier.height(1.dp).background(colors.textMuted).fillMaxWidth())
+    }
+    Spacer(modifier = Modifier.height(12.dp))
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ChuText("Lock app on open", style = typography.label)
+        ChuText("lock app on open", style = typography.label)
         ChuSwitch(checked = appLockEnabled, onCheckedChange = onAppLockEnabledChanged)
     }
-    Spacer(modifier = Modifier.height(8.dp))
+    Spacer(modifier = Modifier.height(20.dp))
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ChuText("Verify before server connect", style = typography.label)
+        ChuText("verify before server connect", style = typography.label)
         ChuSwitch(checked = requireAuthOnConnect, onCheckedChange = onRequireAuthOnConnectChanged)
     }
     Spacer(modifier = Modifier.height(4.dp))
-    ChuText("Use biometrics or device PIN/pattern.", style = typography.bodySmall, color = colors.textMuted)
+    ChuText("use biometrics or device PIN/pattern.", style = typography.bodySmall, color = colors.textMuted)
 }

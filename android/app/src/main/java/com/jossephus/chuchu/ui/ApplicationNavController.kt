@@ -105,7 +105,12 @@ fun ApplicationNavController() {
                 onRequireAuthOnConnectChanged = settingsRepo::setRequireAuthOnConnect,
                 onAccessoryLayoutChanged = settingsRepo::setAccessoryLayoutIds,
                 onTerminalCustomActionsChanged = settingsRepo::setTerminalCustomKeyGroups,
-                onBack = { navController.popBackStack() },
+                onBack = {
+                    val currentRoute = navController.currentBackStackEntry?.destination?.route
+                    if (currentRoute == "settings") {
+                        navController.popBackStack()
+                    }
+                },
             )
         }
         composable("servers/add") {

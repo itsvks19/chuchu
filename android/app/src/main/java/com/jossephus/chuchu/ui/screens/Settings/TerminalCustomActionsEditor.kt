@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,7 +27,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -40,12 +44,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.jossephus.chuchu.ui.components.ChuButton
 import com.jossephus.chuchu.ui.components.ChuButtonVariant
+import com.jossephus.chuchu.ui.components.ChuCard
 import com.jossephus.chuchu.ui.components.ChuText
 import com.jossephus.chuchu.ui.components.ChuTextField
 import com.jossephus.chuchu.ui.terminal.CustomActionModifier
@@ -173,13 +179,13 @@ internal fun TerminalCustomActionsEditorSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(0.88f)
-                    .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
                     .background(colors.surfaceVariant)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = {},
                     )
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -188,13 +194,15 @@ internal fun TerminalCustomActionsEditorSheet(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    ChuText("Custom actions", style = typography.headline)
+                    ChuText("custom actions", style = typography.headline)
                     ChuButton(
                         onClick = onDismiss,
                         variant = ChuButtonVariant.Ghost,
+                        bracketed = true,
+                        borderColor = colors.textMuted,
                         contentPadding = PaddingValues(6.dp),
                     ) {
-                        ChuText("Close", style = typography.label, color = colors.textMuted)
+                        ChuText("x", style = typography.label, color = colors.textMuted)
                     }
                 }
 
@@ -280,19 +288,17 @@ internal fun TerminalCustomActionsEditorSheet(
                                 showAddRow = true
                             },
                             variant = ChuButtonVariant.Outlined,
+                            bracketed = true,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            ChuText("+ Add", style = typography.label)
+                            ChuText("+ add", style = typography.label)
                         }
                     } else {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(colors.surface)
-                                .padding(10.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
+                        ChuCard(modifier = Modifier.fillMaxWidth()) {
+                            Column(
+                                modifier = Modifier.padding(10.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
                             ChuTextField(
                                 value = keyInput,
                                 onValueChange = { keyInput = it },
@@ -374,9 +380,10 @@ internal fun TerminalCustomActionsEditorSheet(
                                 ChuButton(
                                     onClick = ::registerDraftItem,
                                     variant = ChuButtonVariant.Outlined,
+                                    bracketed = true,
                                     modifier = Modifier.weight(1f),
                                 ) {
-                                    ChuText("Add", style = typography.label)
+                                    ChuText("add", style = typography.label)
                                 }
                                 ChuButton(
                                     onClick = {
@@ -388,9 +395,11 @@ internal fun TerminalCustomActionsEditorSheet(
                                         editingIndex = null
                                     },
                                     variant = ChuButtonVariant.Ghost,
+                                    bracketed = true,
+                                    borderColor = colors.textMuted,
                                     modifier = Modifier.weight(1f),
                                 ) {
-                                    ChuText("Cancel", style = typography.label, color = colors.textMuted)
+                                    ChuText("cancel", style = typography.label, color = colors.textMuted)
                                 }
                             }
                         }
@@ -400,6 +409,8 @@ internal fun TerminalCustomActionsEditorSheet(
             }
         }
     }
+}
+
 }
 
 @Composable
@@ -421,7 +432,7 @@ private fun CustomActionSwipeRow(
     val maxSwipePx = with(density) { 120.dp.toPx() }
     val deleteThresholdPx = with(density) { 72.dp.toPx() }
     val offsetX = remember(keyText, valueText) { Animatable(0f) }
-    val cardShape = RoundedCornerShape(8.dp)
+    val cardShape = RectangleShape
 
     Box(
         modifier = Modifier
@@ -431,19 +442,17 @@ private fun CustomActionSwipeRow(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(cardShape)
                 .background(colors.error.copy(alpha = 0.78f))
                 .padding(end = 12.dp),
             contentAlignment = Alignment.CenterEnd,
         ) {
-            ChuText("Delete", style = typography.label, color = colors.background)
+            ChuText("[ delete ]", style = typography.label, color = colors.background)
         }
 
         Row(
             modifier = Modifier
                 .offset { IntOffset(offsetX.value.roundToInt(), dragOffsetPx.roundToInt()) }
                 .fillMaxSize()
-                .clip(cardShape)
                 .background(if (dragging) colors.accent.copy(alpha = 0.12f) else colors.surface)
                 .padding(horizontal = 12.dp)
                 .clickable(onClick = onEdit)

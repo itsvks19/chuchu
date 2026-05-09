@@ -15,15 +15,19 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
@@ -41,6 +45,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.jossephus.chuchu.ui.components.ChuButton
 import com.jossephus.chuchu.ui.components.ChuButtonVariant
+import com.jossephus.chuchu.ui.components.ChuCard
 import com.jossephus.chuchu.ui.components.ChuText
 import com.jossephus.chuchu.ui.terminal.AccessoryKeyItem
 import com.jossephus.chuchu.ui.terminal.KeyboardAccessoryBar
@@ -64,100 +69,103 @@ internal fun TerminalSettings(
         TerminalAccessoryLayoutStore.resolveSelectedLayout(currentAccessoryLayoutIds)
     }
 
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        ChuText("── ", style = typography.labelSmall, color = colors.textMuted)
+        ChuText("TERMINAL", style = typography.labelSmall, color = colors.textMuted)
+        ChuText(" ", style = typography.labelSmall, color = colors.textMuted)
+        Box(modifier = Modifier.height(1.dp).background(colors.textMuted).fillMaxWidth())
+    }
+    Spacer(modifier = Modifier.height(12.dp))
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        ChuText("Terminal", style = typography.title)
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .background(colors.surface)
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+        ChuCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    ChuText("Accessory keys", style = typography.label)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        ChuText("accessory keys", style = typography.label)
+                        ChuText(
+                            if (selectedItems.isEmpty()) "no keys enabled" else "${selectedItems.size} keys enabled",
+                            style = typography.body,
+                            color = colors.textMuted,
+                        )
+                    }
+
+                    ChuButton(
+                        onClick = onEditAccessoryLayout,
+                        variant = ChuButtonVariant.Outlined,
+                        bracketed = true,
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                    ) {
+                        ChuText("customize", style = typography.label)
+                    }
+                }
+
+                if (selectedItems.isEmpty()) {
                     ChuText(
-                        if (selectedItems.isEmpty()) "No keys enabled" else "${selectedItems.size} keys enabled",
+                        "choose the accessory keys you want in the terminal bar.",
                         style = typography.body,
-                        color = colors.textMuted,
+                        color = colors.textSecondary,
                     )
-                }
-
-                ChuButton(
-                    onClick = onEditAccessoryLayout,
-                    variant = ChuButtonVariant.Outlined,
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
-                ) {
-                    ChuText("Customize", style = typography.label)
-                }
-            }
-
-            if (selectedItems.isEmpty()) {
-                ChuText(
-                    "Choose the accessory keys you want in the terminal bar.",
-                    style = typography.body,
-                    color = colors.textSecondary,
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(colors.surfaceVariant),
-                ) {
-                    KeyboardAccessoryBar(
-                        items = selectedItems,
-                        modifierState = ModifierState(),
-                        onAction = {},
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(colors.surfaceVariant),
+                    ) {
+                        KeyboardAccessoryBar(
+                            items = selectedItems,
+                            modifierState = ModifierState(),
+                            onAction = {},
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
             }
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .background(colors.surface)
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+        ChuCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    ChuText("Custom actions", style = typography.label)
-                    val actionCount = currentTerminalCustomKeyGroups.sumOf { it.actions.size }
-                    ChuText(
-                        if (actionCount == 0) "No custom actions" else "$actionCount actions",
-                        style = typography.body,
-                        color = colors.textMuted,
-                    )
-                }
-
-                ChuButton(
-                    onClick = onEditCustomActions,
-                    variant = ChuButtonVariant.Outlined,
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    ChuText("Customize", style = typography.label)
-                }
-            }
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        ChuText("custom actions", style = typography.label)
+                        val actionCount = currentTerminalCustomKeyGroups.sumOf { it.actions.size }
+                        ChuText(
+                            if (actionCount == 0) "no custom actions" else "$actionCount actions",
+                            style = typography.body,
+                            color = colors.textMuted,
+                        )
+                    }
 
-            ChuText(
-                "Create quick keys.",
-                style = typography.body,
-                color = colors.textSecondary,
-            )
+                    ChuButton(
+                        onClick = onEditCustomActions,
+                        variant = ChuButtonVariant.Outlined,
+                        bracketed = true,
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                    ) {
+                        ChuText("customize", style = typography.label)
+                    }
+                }
+
+                ChuText(
+                    "create quick keys.",
+                    style = typography.body,
+                    color = colors.textSecondary,
+                )
+            }
         }
     }
 }
@@ -233,34 +241,25 @@ internal fun AccessoryLayoutEditorSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(0.82f)
-                    .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
                     .background(colors.surfaceVariant)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = {},
                     )
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .width(36.dp)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(colors.textMuted),
-                )
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.Top,
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        ChuText("Accessory keys", style = typography.headline)
+                        ChuText("accessory keys", style = typography.headline)
                         ChuText(
-                            "Choose which keys appear in the bar.",
+                            "choose which keys appear in the bar.",
                             style = typography.body,
                             color = colors.textSecondary,
                         )
@@ -269,40 +268,39 @@ internal fun AccessoryLayoutEditorSheet(
                     ChuButton(
                         onClick = onDismiss,
                         variant = ChuButtonVariant.Ghost,
+                        bracketed = true,
+                        borderColor = colors.textMuted,
                         contentPadding = PaddingValues(6.dp),
                     ) {
-                        ChuText("Close", style = typography.label, color = colors.textMuted)
+                        ChuText("x", style = typography.label, color = colors.textMuted)
                     }
                 }
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(colors.surface)
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
+                ChuCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        ChuText("Preview", style = typography.label)
-                        ChuText(
-                            if (selectedItems.isEmpty()) "0" else selectedItems.size.toString(),
-                            style = typography.labelSmall,
-                            color = colors.textMuted,
-                        )
-                    }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            ChuText("preview", style = typography.label)
+                            ChuText(
+                                if (selectedItems.isEmpty()) "0" else selectedItems.size.toString(),
+                                style = typography.labelSmall,
+                                color = colors.textMuted,
+                            )
+                        }
 
-                    if (selectedItems.isEmpty()) {
-                        ChuText(
-                            "No accessory keys selected.",
-                            style = typography.body,
-                            color = colors.textMuted,
-                        )
-                    } else {
+                        if (selectedItems.isEmpty()) {
+                            ChuText(
+                                "no accessory keys selected.",
+                                style = typography.body,
+                                color = colors.textMuted,
+                            )
+                        } else {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -362,11 +360,12 @@ internal fun AccessoryLayoutEditorSheet(
                         }
 
                         ChuText(
-                            "Long-press a key in preview, then drag to place it where you want.",
+                            "long-press a key in preview, then drag to place it where you want.",
                             style = typography.body,
                             color = colors.textMuted,
                         )
                     }
+                }
                 }
 
                 Column(
@@ -393,16 +392,18 @@ internal fun AccessoryLayoutEditorSheet(
                     ChuButton(
                         onClick = { draftSelectedIds = TerminalAccessoryLayoutStore.defaultLayoutIds() },
                         variant = ChuButtonVariant.Outlined,
+                        bracketed = true,
                         modifier = Modifier.weight(1f),
                     ) {
-                        ChuText("Reset", style = typography.label)
+                        ChuText("reset", style = typography.label)
                     }
 
                     ChuButton(
                         onClick = { onSave(draftSelectedIds) },
+                        bracketed = true,
                         modifier = Modifier.weight(1f),
                     ) {
-                        ChuText("Save", style = typography.label, color = colors.onAccent)
+                        ChuText("save", style = typography.label, color = colors.onAccent)
                     }
                 }
             }
@@ -423,7 +424,6 @@ private fun PreviewKeyChip(
     Box(
         modifier = modifier
             .offset { IntOffset(x = dragOffsetPx.roundToInt(), y = 0) }
-            .clip(RoundedCornerShape(6.dp))
             .background(if (dragging) colors.accent.copy(alpha = 0.2f) else colors.surfaceVariant)
             .padding(horizontal = 10.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
@@ -448,7 +448,6 @@ private fun AccessoryChooserRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
             .background(if (selected) colors.surface else colors.surfaceVariant)
             .clickable(onClick = onClick)
             .padding(10.dp),
@@ -459,12 +458,11 @@ private fun AccessoryChooserRow(
             modifier = Modifier
                 .width(34.dp)
                 .height(34.dp)
-                .clip(RoundedCornerShape(6.dp))
                 .background(if (selected) colors.accent.copy(alpha = 0.18f) else colors.surface),
             contentAlignment = Alignment.Center,
         ) {
             ChuText(
-                text = if (selected) "✓" else "+",
+                text = if (selected) "●" else "+",
                 style = typography.label,
                 color = if (selected) colors.accent else colors.textMuted,
             )

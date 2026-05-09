@@ -28,13 +28,15 @@ fun <T> ChuSegmentedControl(
             val label = labels[option] ?: option.toString()
             ChuButton(
                 onClick = { onSelect(option) },
-                variant = if (isSelected) ChuButtonVariant.Filled else ChuButtonVariant.Outlined,
+                variant = ChuButtonVariant.Outlined,
+                borderColor = if (isSelected) colors.accent else colors.border,
+                backgroundColor = if (isSelected) colors.accent.copy(alpha = 0.12f) else null,
                 modifier = Modifier.weight(1f),
             ) {
                 ChuText(
                     text = label,
                     style = typography.label,
-                    color = if (isSelected) colors.onAccent else colors.textSecondary,
+                    color = if (isSelected) colors.accent else colors.textSecondary,
                 )
             }
         }

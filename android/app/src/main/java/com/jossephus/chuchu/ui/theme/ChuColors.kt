@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.Color
 
 @Immutable
 data class ChuColorPalette(
+    val name: String,
     val background: Color,
     val surface: Color,
     val surfaceVariant: Color,
@@ -26,6 +27,7 @@ data class ChuColorPalette(
 )
 
 val ChuDarkColors: ChuColorPalette = ChuColorPalette(
+    name = "mocha",
     background = Color(0xFF1E1E2E),
     surface = Color(0xFF313244),
     surfaceVariant = Color(0xFF181825),
