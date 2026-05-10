@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -62,6 +63,10 @@ fun FileBrowserScreen(
         } else {
             onGoUp()
         }
+    }
+
+    LaunchedEffect(state.currentPath) {
+        searchQuery = ""
     }
 
     val filteredEntries = remember(state.entries, searchQuery) {
