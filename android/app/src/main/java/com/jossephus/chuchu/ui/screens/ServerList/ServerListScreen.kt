@@ -1,9 +1,12 @@
 package com.jossephus.chuchu.ui.screens.ServerList
 
 import android.app.Application
+import android.widget.Toast
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,9 +24,8 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,14 +33,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import android.widget.Toast
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import com.jossephus.chuchu.model.HostProfile
@@ -73,6 +73,14 @@ fun ServerListScreen(
     val hasActiveSession = sessionState.status == SessionStatus.Connecting ||
         sessionState.status == SessionStatus.Connected ||
         sessionState.status == SessionStatus.Reconnecting
+
+    var selectedHostId by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(hosts, selectedHostId) {
+        val selected_id = selectedHostId
+        if (selected_id != null && hosts.none { it.id == selected_id }) {
+            selectedHostId = null
+        }
+    }
 
     val colors = ChuColors.current
     val typography = ChuTypography.current
@@ -119,8 +127,29 @@ fun ServerListScreen(
                         HostCard(
                             host = host,
                             isConnected = isConnected,
-                            onEdit = { onEditServer(host.id) },
+                            isSelected = selectedHostId == host.id,
+                            onLongPress = { selectedHostId = host.id },
+                            onCancelSelection = { selectedHostId = null },
+                            onDeleteSelection = {
+                                val selected_key = "host:${host.id}"
+                                val is_selected_connected = activeSessionKey == selected_key && hasActiveSession
+                                if (is_selected_connected) {
+                                    Toast.makeText(
+                                        context,
+                                        "Disconnect before deleting this host",
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                } else {
+                                    onDeleteServer(host.id)
+                                    selectedHostId = null
+                                }
+                            },
+                            onEdit = {
+                                selectedHostId = null
+                                onEditServer(host.id)
+                            },
                             onConnect = {
+                                selectedHostId = null
                                 if (!hasActiveSession || activeSessionKey == targetSessionKey) {
                                     onConnectServer(host.id)
                                 } else {
@@ -131,8 +160,10 @@ fun ServerListScreen(
                                     ).show()
                                 }
                             },
-                            onDisconnect = { sessionRepo.disconnect() },
-                            onDelete = { onDeleteServer(host.id) },
+                            onDisconnect = {
+                                selectedHostId = null
+                                sessionRepo.disconnect()
+                            },
                         )
                     }
                 }
@@ -200,135 +231,190 @@ private fun EmptyState() {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HostCard(
     host: HostProfile,
     isConnected: Boolean,
+    isSelected: Boolean,
+    onLongPress: () -> Unit,
+    onCancelSelection: () -> Unit,
+    onDeleteSelection: () -> Unit,
     onEdit: () -> Unit,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
-    onDelete: () -> Unit,
 ) {
     val colors = ChuColors.current
     val typography = ChuTypography.current
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
-    val maxSwipePx = with(density) { 120.dp.toPx() }
-    val deleteThresholdPx = with(density) { 72.dp.toPx() }
-    val offsetX = remember(host.id) { Animatable(0f) }
-    var revealAddress by remember(host.id) { mutableStateOf(false) }
+    val maxSwipePx = with(density) { 132.dp.toPx() }
+    val disconnectThresholdPx = with(density) { 72.dp.toPx() }
+    val swipeOffsetX = remember(host.id) { Animatable(0f) }
 
-    Box(modifier = Modifier.fillMaxWidth().height(114.dp)) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(if (isConnected) colors.warning.copy(alpha = 0.78f) else colors.error.copy(alpha = 0.78f))
-                .padding(end = 14.dp),
-        ) {
-            ChuText(
-                if (isConnected) "[ disconnect ]" else "[ delete ]",
-                style = typography.label,
-                color = colors.background,
-                modifier = Modifier.align(Alignment.CenterEnd),
-            )
+    LaunchedEffect(isConnected) {
+        if (!isConnected) {
+            swipeOffsetX.snapTo(0f)
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        if (isSelected) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ChuButton(
+                        onClick = onCancelSelection,
+                        variant = ChuButtonVariant.Ghost,
+                        bracketed = true,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                    ) {
+                        ChuText("cancel", style = typography.label, color = colors.textSecondary)
+                    }
+                    ChuButton(
+                        onClick = onDeleteSelection,
+                        variant = ChuButtonVariant.Outlined,
+                        bracketed = true,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                    ) {
+                        ChuText("delete", style = typography.label, color = colors.error)
+                    }
+                }
+            }
         }
 
         Box(
             modifier = Modifier
-                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
-                .fillMaxSize()
-                .clickable(onClick = onConnect)
-                .pointerInput(host.id) {
-                    detectHorizontalDragGestures(
-                        onHorizontalDrag = { change, dragAmount ->
-                            change.consume()
-                            val next = (offsetX.value + dragAmount).coerceIn(-maxSwipePx, 0f)
-                            scope.launch { offsetX.snapTo(next) }
-                        },
-                        onDragEnd = {
-                            if (offsetX.value <= -deleteThresholdPx) {
-                                if (isConnected) {
-                                    onDisconnect()
-                                } else {
-                                    onDelete()
-                                }
-                                scope.launch { offsetX.snapTo(0f) }
-                            } else {
-                                scope.launch { offsetX.animateTo(0f, animationSpec = tween(140)) }
-                            }
-                        },
-                    )
-                },
+                .fillMaxWidth()
+                .height(114.dp),
         ) {
-            ChuCard(
-                modifier = Modifier.fillMaxSize(),
-                background = colors.surfaceVariant,
-                border = if (isConnected) colors.success else colors.border,
-            ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            ChuText(
-                                if (isConnected) "● " else "○ ",
-                                style = typography.title,
-                                color = if (isConnected) colors.success else colors.textMuted,
-                            )
-                            ChuText(host.name, style = typography.title)
+            if (isConnected) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(colors.warning.copy(alpha = 0.82f))
+                        .padding(end = 14.dp),
+                ) {
+                    ChuText(
+                        "[disconnect]",
+                        style = typography.label,
+                        color = colors.background,
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .offset { IntOffset(swipeOffsetX.value.roundToInt(), 0) }
+                    .fillMaxSize()
+                    .pointerInput(host.id, isConnected) {
+                        if (!isConnected) {
+                            return@pointerInput
                         }
-                        if (isConnected) {
-                            TuiBadge(
-                                text = "CONNECTED",
-                                color = colors.success,
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        ChuText(
-                            "> ${host.username}@${host.host}:${host.port}",
-                            style = typography.body,
-                            color = colors.textSecondary,
-                            modifier = Modifier
-                                .clickable { revealAddress = !revealAddress }
-                                .then(if (revealAddress) Modifier else Modifier.blur(8.dp)),
+                        detectHorizontalDragGestures(
+                            onHorizontalDrag = { change, dragAmount ->
+                                change.consume()
+                                val next = (swipeOffsetX.value + dragAmount).coerceIn(-maxSwipePx, 0f)
+                                scope.launch { swipeOffsetX.snapTo(next) }
+                            },
+                            onDragEnd = {
+                                if (swipeOffsetX.value <= -disconnectThresholdPx) {
+                                    onDisconnect()
+                                    scope.launch { swipeOffsetX.snapTo(0f) }
+                                } else {
+                                    scope.launch {
+                                        swipeOffsetX.animateTo(0f, animationSpec = tween(140))
+                                    }
+                                }
+                            },
                         )
-                        if (host.transport == Transport.TailscaleSSH) {
-                            TuiBadge(
-                                text = "tailscale",
-                                color = colors.accent,
+                    },
+            ) {
+                ChuCard(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .combinedClickable(
+                            onClick = {
+                                if (isConnected) onDisconnect() else onConnect()
+                            },
+                            onLongClick = onLongPress,
+                        ),
+                    background = colors.surfaceVariant,
+                    border = when {
+                        isSelected -> colors.warning
+                        isConnected -> colors.success
+                        else -> colors.border
+                    },
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ChuText(
+                                    if (isConnected) "● " else "○ ",
+                                    style = typography.title,
+                                    color = if (isConnected) colors.success else colors.textMuted,
+                                )
+                                ChuText(host.name, style = typography.title)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            ChuText(
+                                "> ${host.username}@${host.host}:${host.port}",
+                                style = typography.body,
+                                color = colors.textSecondary,
                             )
+                            if (host.transport == Transport.TailscaleSSH) {
+                                TuiBadge(
+                                    text = "tailscale",
+                                    color = colors.accent,
+                                )
+                            }
                         }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        ChuButton(
-                            onClick = onEdit,
-                            variant = ChuButtonVariant.Ghost,
-                            bracketed = true,
-                            borderColor = colors.textMuted,
-                            testTag = "host_edit_${host.id}",
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                        ) {
-                            ChuText("edit", style = typography.label, color = colors.textMuted)
-                        }
-                        ChuButton(
-                            onClick = onConnect,
-                            variant = ChuButtonVariant.Outlined,
-                            bracketed = true,
-                            borderColor = colors.accentSecondary,
-                            testTag = "host_connect_${host.id}",
-                            contentDescription = "Connect to ${host.name}",
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                        ) {
-                            ChuText("connect", style = typography.label, color = colors.accentSecondary)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            ChuButton(
+                                onClick = onEdit,
+                                variant = ChuButtonVariant.Ghost,
+                                bracketed = true,
+                                borderColor = colors.textMuted,
+                                testTag = "host_edit_${host.id}",
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                            ) {
+                                ChuText("edit", style = typography.label, color = colors.textMuted)
+                            }
+                            ChuButton(
+                                onClick = {
+                                    if (isConnected) onDisconnect() else onConnect()
+                                },
+                                variant = ChuButtonVariant.Outlined,
+                                bracketed = true,
+                                borderColor = if (isConnected) colors.warning else colors.accentSecondary,
+                                testTag = "host_connect_${host.id}",
+                                contentDescription = if (isConnected) "Disconnect from ${host.name}" else "Connect to ${host.name}",
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                            ) {
+                                ChuText(
+                                    if (isConnected) "disconnect" else "connect",
+                                    style = typography.label,
+                                    color = if (isConnected) colors.warning else colors.accentSecondary,
+                                )
+                            }
                         }
                     }
                 }
