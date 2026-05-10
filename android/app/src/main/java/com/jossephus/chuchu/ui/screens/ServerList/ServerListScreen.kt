@@ -187,11 +187,6 @@ fun ServerListScreen(
                 ChuText("+ add server", style = typography.label, color = colors.onAccent)
             }
 
-            ChuText(
-                text = "theme: ${colors.name}",
-                style = typography.labelSmall,
-                color = colors.textMuted,
-            )
         }
 
     }
@@ -201,15 +196,21 @@ fun ServerListScreen(
 private fun SectionHeader(label: String) {
     val colors = ChuColors.current
     val typography = ChuTypography.current
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        ChuText("── ", style = typography.labelSmall, color = colors.border)
-        ChuText(label, style = typography.labelSmall, color = colors.textSecondary)
-        ChuText(" ", style = typography.labelSmall, color = colors.border)
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.CenterStart,
+    ) {
         Box(
             modifier = Modifier
+                .fillMaxWidth()
                 .height(1.dp)
-                .background(colors.border)
-                .fillMaxWidth(),
+                .background(colors.border),
+        )
+        ChuText(
+            "── $label",
+            style = typography.labelSmall,
+            color = colors.textSecondary,
+            modifier = Modifier.background(colors.background),
         )
     }
 }
