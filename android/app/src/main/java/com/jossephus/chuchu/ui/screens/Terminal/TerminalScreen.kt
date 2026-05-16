@@ -21,9 +21,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -49,7 +47,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
 
 import androidx.compose.ui.geometry.Offset
@@ -93,6 +90,7 @@ import com.jossephus.chuchu.ui.terminal.TerminalAccessoryLayoutStore
 import com.jossephus.chuchu.ui.terminal.TerminalCustomAction
 import com.jossephus.chuchu.ui.terminal.TerminalCustomKeyGroup
 import com.jossephus.chuchu.ui.terminal.TerminalInputView
+import com.jossephus.chuchu.ui.terminal.TerminalSpecialKey
 import com.jossephus.chuchu.ui.terminal.CustomActionModifier
 import com.jossephus.chuchu.ui.terminal.decodeCustomActionValue
 import com.jossephus.chuchu.ui.terminal.modifierStateForCustomAction
@@ -344,6 +342,12 @@ fun TerminalScreen(
         if (hasSeenTabsForHost && tabsForHost.isEmpty()) {
             onBack()
         }
+    }
+
+    LaunchedEffect(showTabSheet, tabsForHost, activeTabId) {
+        if (!showTabSheet || tabsForHost.isEmpty()) return@LaunchedEffect
+        val activeIndex = tabsForHost.indexOfFirst { it.id == activeTabId }
+        focusedTabIndex = if (activeIndex >= 0) activeIndex else focusedTabIndex.coerceIn(0, tabsForHost.lastIndex)
     }
 
     if (showPassphrasePrompt) {
@@ -763,14 +767,47 @@ fun TerminalScreen(
                             factory = { viewContext ->
                                 TerminalInputView(viewContext).apply {
                                     onTerminalText = { text ->
-                                        vm.dispatchTextWithModifierState(text, modifierState)
-                                        resetModifiers()
+                                        if (!chuchuKeys.handleText(text)) {
+                                            vm.dispatchTextWithModifierState(text, modifierState)
+                                            resetModifiers()
+                                        }
                                     }
                                     onTerminalKey = { key, codepoint, mods, action ->
-                                        val mergedMods = mods or modifierState.terminalMods()
-                                        vm.onHardwareKey(key, codepoint, mergedMods, action)
-                                        if (modifierState.hasActiveModifiers()) {
-                                            resetModifiers()
+                                        var shouldForwardToTerminal = true
+                                        if (showTabSheet && tabsForHost.isNotEmpty()) {
+                                            var consumedByTabSwitcher = true
+                                            when (key) {
+                                                TerminalSpecialKey.Left.engineKey,
+                                                TerminalSpecialKey.Up.engineKey,
+                                                -> focusedTabIndex = (focusedTabIndex - 1).mod(tabsForHost.size)
+
+                                                TerminalSpecialKey.Right.engineKey,
+                                                TerminalSpecialKey.Down.engineKey,
+                                                -> focusedTabIndex = (focusedTabIndex + 1).mod(tabsForHost.size)
+
+                                                TerminalSpecialKey.Enter.engineKey -> {
+                                                    tabsForHost.getOrNull(focusedTabIndex)?.let {
+                                                        vm.selectTab(it.id)
+                                                        showTabSheet = false
+                                                    }
+                                                }
+
+                                                TerminalSpecialKey.Escape.engineKey -> {
+                                                    showTabSheet = false
+                                                }
+
+                                                else -> consumedByTabSwitcher = false
+                                            }
+                                            if (consumedByTabSwitcher) {
+                                                shouldForwardToTerminal = false
+                                            }
+                                        }
+                                        if (shouldForwardToTerminal) {
+                                            val mergedMods = mods or modifierState.terminalMods()
+                                            vm.onHardwareKey(key, codepoint, mergedMods, action)
+                                            if (modifierState.hasActiveModifiers()) {
+                                                resetModifiers()
+                                            }
                                         }
                                     }
                                     setOnFocusChangeListener { _, hasFocus ->
@@ -849,9 +886,45 @@ fun TerminalScreen(
                     UploadProgressDialog(progress = uploadProgress)
                 }
                 if (showTabSheet) {
+                    val overlayAccessoryAction: (AccessoryAction) -> Unit = { action ->
+                        val result = TerminalAccessoryDispatcher.dispatch(action, ModifierState())
+                        when (result.specialKey) {
+                            TerminalSpecialKey.Left, TerminalSpecialKey.Up -> {
+                                if (tabsForHost.isNotEmpty()) focusedTabIndex = (focusedTabIndex - 1).mod(tabsForHost.size)
+                            }
+                            TerminalSpecialKey.Right, TerminalSpecialKey.Down -> {
+                                if (tabsForHost.isNotEmpty()) focusedTabIndex = (focusedTabIndex + 1).mod(tabsForHost.size)
+                            }
+                            TerminalSpecialKey.Enter -> {
+                                tabsForHost.getOrNull(focusedTabIndex)?.let {
+                                    vm.selectTab(it.id)
+                                    showTabSheet = false
+                                }
+                            }
+                            TerminalSpecialKey.Escape -> {
+                                showTabSheet = false
+                            }
+                            else -> {
+                                result.text?.let { vm.onTextInput(it) }
+                            }
+                        }
+                    }
                     TabSwitcherOverlay(
                         tabs = tabsForHost,
                         activeTabId = activeTabId,
+                        focusedTabId = tabsForHost.getOrNull(focusedTabIndex)?.id,
+                        terminalFontSizeSp = terminalFontSizeSp,
+                        accessoryItems = accessoryLayout,
+                        accessoryModifierState = ModifierState(),
+                        onAccessoryAction = overlayAccessoryAction,
+                        onChuchuKey = { chuchuKeys.togglePrefix() },
+                        chuchuKeyActive = chuchuKeys.isPrefixActive,
+                        onOpenFiles = {
+                            vm.selectConnectionTab(ConnectionTab.Files)
+                            showTabSheet = false
+                        },
+                        onOpenSettings = onOpenSettings,
+                        useSingleRowAccessoryBar = useSingleRowAccessoryBar,
                         onSelectTab = {
                             vm.selectTab(it)
                             showTabSheet = false
@@ -885,6 +958,16 @@ fun TerminalScreen(
 private fun TabSwitcherOverlay(
     tabs: List<TabSession>,
     activeTabId: String?,
+    focusedTabId: String?,
+    terminalFontSizeSp: Float,
+    accessoryItems: List<AccessoryKeyItem>,
+    accessoryModifierState: ModifierState,
+    onAccessoryAction: (AccessoryAction) -> Unit,
+    onChuchuKey: () -> Unit,
+    chuchuKeyActive: Boolean,
+    onOpenFiles: () -> Unit,
+    onOpenSettings: () -> Unit,
+    useSingleRowAccessoryBar: Boolean,
     onSelectTab: (String) -> Unit,
     onCloseTab: (String) -> Unit,
     onAddTab: () -> Unit,
@@ -969,35 +1052,26 @@ private fun TabSwitcherOverlay(
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .height(150.dp)
+                                            .weight(1f)
                                             .background(previewBackground)
                                             .clickable { onSelectTab(tab.id) },
                                     ) {
                                         if (snapshot != null) {
-                                            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                                                val widthDp = maxWidth.value.coerceAtLeast(1f)
-                                                val heightDp = maxHeight.value.coerceAtLeast(1f)
-                                                val cols = snapshot.cols.coerceAtLeast(1)
-                                                val rows = snapshot.rows.coerceAtLeast(1)
-                                                val charAspect = 2.05f
-                                                val byWidth = widthDp / cols.toFloat()
-                                                val byHeight = (heightDp / rows.toFloat()) / charAspect
-                                                val previewFontSizeSp = minOf(byWidth, byHeight).coerceIn(2.8f, 6.5f)
-                                                TerminalCanvas(
-                                                    snapshot = snapshot,
-                                                    fontSizeSp = previewFontSizeSp,
-                                                    cursorColor = Color.Transparent,
-                                                    selectionBackgroundColor = Color.Transparent,
-                                                    onTap = { onSelectTab(tab.id) },
-                                                    onPrimaryClick = { _, _ -> onSelectTab(tab.id) },
-                                                    onScroll = {},
-                                                    onZoom = {},
-                                                    onSelectionChanged = { _, _, _, _ -> },
-                                                    modifier = Modifier
-                                                        .fillMaxSize()
-                                                        .clip(RectangleShape),
-                                                )
-                                            }
+                                            TerminalCanvas(
+                                                snapshot = snapshot,
+                                                fontSizeSp = terminalFontSizeSp,
+                                                fitSnapshotToCanvas = true,
+                                                enableGestures = false,
+                                                cursorColor = Color.Transparent,
+                                                selectionBackgroundColor = Color.Transparent,
+                                                selectionForegroundColor = Color.Transparent,
+                                                onTap = { onSelectTab(tab.id) },
+                                                onPrimaryClick = { _, _ -> onSelectTab(tab.id) },
+                                                onScroll = {},
+                                                onZoom = {},
+                                                onSelectionChanged = { _, _, _, _ -> },
+                                                modifier = Modifier.fillMaxSize(),
+                                            )
                                         } else {
                                             Column(
                                                 modifier = Modifier.padding(8.dp),
