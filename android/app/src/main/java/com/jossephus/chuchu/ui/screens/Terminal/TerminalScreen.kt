@@ -786,27 +786,29 @@ fun TerminalScreen(
                                                 shouldForwardToTerminal = false
                                                 consumedByTabSwitcher = true
                                             }
-                                            when (key) {
-                                                TerminalSpecialKey.Left.engineKey,
-                                                TerminalSpecialKey.Up.engineKey,
-                                                -> focusedTabIndex = (focusedTabIndex - 1).mod(tabsForHost.size)
+                                            if (isPress) {
+                                                when (key) {
+                                                    TerminalSpecialKey.Left.engineKey,
+                                                    TerminalSpecialKey.Up.engineKey,
+                                                    -> focusedTabIndex = (focusedTabIndex - 1).mod(tabsForHost.size)
 
-                                                TerminalSpecialKey.Right.engineKey,
-                                                TerminalSpecialKey.Down.engineKey,
-                                                -> focusedTabIndex = (focusedTabIndex + 1).mod(tabsForHost.size)
+                                                    TerminalSpecialKey.Right.engineKey,
+                                                    TerminalSpecialKey.Down.engineKey,
+                                                    -> focusedTabIndex = (focusedTabIndex + 1).mod(tabsForHost.size)
 
-                                                TerminalSpecialKey.Enter.engineKey -> {
-                                                    tabsForHost.getOrNull(focusedTabIndex)?.let {
-                                                        vm.selectTab(it.id)
+                                                    TerminalSpecialKey.Enter.engineKey -> {
+                                                        tabsForHost.getOrNull(focusedTabIndex)?.let {
+                                                            vm.selectTab(it.id)
+                                                            showTabSheet = false
+                                                        }
+                                                    }
+
+                                                    TerminalSpecialKey.Escape.engineKey -> {
                                                         showTabSheet = false
                                                     }
-                                                }
 
-                                                TerminalSpecialKey.Escape.engineKey -> {
-                                                    showTabSheet = false
+                                                    else -> consumedByTabSwitcher = false
                                                 }
-
-                                                else -> consumedByTabSwitcher = false
                                             }
                                             if (consumedByTabSwitcher) {
                                                 shouldForwardToTerminal = false
