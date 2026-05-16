@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -481,6 +482,12 @@ fun TerminalScreen(
                             view.showKeyboard(inputMethodManager)
                         }
                     }
+                    val hideSoftKeyboard: () -> Unit = {
+                        val view = inputViewRef.value
+                        if (view != null) {
+                            inputMethodManager?.hideSoftInputFromWindow(view.windowToken, 0)
+                        }
+                    }
                     val clipboard = remember {
                         context.getSystemService(ClipboardManager::class.java)
                     }
@@ -761,6 +768,24 @@ fun TerminalScreen(
                                         var shouldForwardToTerminal = true
                                         if (showTabSheet && tabsForHost.isNotEmpty()) {
                                             var consumedByTabSwitcher = true
+                                            val isPress = action == GhosttyKeyAction.Press
+                                            if (isPress && chuchuKeys.isPrefixActive) {
+                                                when (codepoint.toChar().lowercaseChar()) {
+                                                    'n' -> {
+                                                        vm.duplicateActiveTab()
+                                                        vm.selectConnectionTab(ConnectionTab.Terminal)
+                                                        showTabSheet = false
+                                                    }
+                                                    't' -> {
+                                                        showTabSheet = true
+                                                    }
+                                                    else -> {
+                                                    }
+                                                }
+                                                chuchuKeys.reset()
+                                                shouldForwardToTerminal = false
+                                                consumedByTabSwitcher = true
+                                            }
                                             when (key) {
                                                 TerminalSpecialKey.Left.engineKey,
                                                 TerminalSpecialKey.Up.engineKey,
@@ -855,7 +880,10 @@ fun TerminalScreen(
                             modifierState = modifierState,
                             onAction = ::dispatchAccessoryAction,
                             onSettings = onOpenSettings,
-                            onChuchuKey = { chuchuKeys.togglePrefix() },
+                            onChuchuKey = {
+                                chuchuKeys.togglePrefix()
+                                requestInputFocus()
+                            },
                             chuchuKeyActive = chuchuKeys.isPrefixActive,
                             onOpenFiles = { vm.selectConnectionTab(ConnectionTab.Files) },
                             useSingleRow = useSingleRowAccessoryBar,
@@ -871,38 +899,48 @@ fun TerminalScreen(
                     UploadProgressDialog(progress = uploadProgress)
                 }
                 if (showTabSheet) {
-                    val overlayAccessoryAction: (AccessoryAction) -> Unit = { action ->
-                        val result = TerminalAccessoryDispatcher.dispatch(action, ModifierState())
-                        when (result.specialKey) {
-                            TerminalSpecialKey.Left, TerminalSpecialKey.Up -> {
-                                if (tabsForHost.isNotEmpty()) focusedTabIndex = (focusedTabIndex - 1).mod(tabsForHost.size)
+                    val paletteAccessoryAction: (AccessoryAction) -> Unit = { action ->
+                        if (!(action is AccessoryAction.SendText && chuchuKeys.handleText(action.text))) {
+                            if (chuchuKeys.isPrefixActive) {
+                                chuchuKeys.reset()
                             }
-                            TerminalSpecialKey.Right, TerminalSpecialKey.Down -> {
-                                if (tabsForHost.isNotEmpty()) focusedTabIndex = (focusedTabIndex + 1).mod(tabsForHost.size)
-                            }
-                            TerminalSpecialKey.Enter -> {
-                                tabsForHost.getOrNull(focusedTabIndex)?.let {
-                                    vm.selectTab(it.id)
+                            val result = TerminalAccessoryDispatcher.dispatch(action, ModifierState())
+                            when (result.specialKey) {
+                                TerminalSpecialKey.Left, TerminalSpecialKey.Up -> {
+                                    if (tabsForHost.isNotEmpty()) focusedTabIndex = (focusedTabIndex - 1).mod(tabsForHost.size)
+                                }
+                                TerminalSpecialKey.Right, TerminalSpecialKey.Down -> {
+                                    if (tabsForHost.isNotEmpty()) focusedTabIndex = (focusedTabIndex + 1).mod(tabsForHost.size)
+                                }
+                                TerminalSpecialKey.Enter -> {
+                                    tabsForHost.getOrNull(focusedTabIndex)?.let {
+                                        vm.selectTab(it.id)
+                                        showTabSheet = false
+                                    }
+                                }
+                                TerminalSpecialKey.Escape -> {
                                     showTabSheet = false
                                 }
-                            }
-                            TerminalSpecialKey.Escape -> {
-                                showTabSheet = false
-                            }
-                            else -> {
-                                result.text?.let { vm.onTextInput(it) }
+                                else -> {
+                                    result.text?.let { text ->
+                                        if (!chuchuKeys.handleText(text)) {
+                                            vm.onTextInput(text)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
-                    TabSwitcherOverlay(
+                    CommandPalette(
                         tabs = tabsForHost,
                         activeTabId = activeTabId,
-                        focusedTabId = tabsForHost.getOrNull(focusedTabIndex)?.id,
-                        terminalFontSizeSp = terminalFontSizeSp,
+                        focusedTabIndex = focusedTabIndex,
+                        onFocusedTabIndexChange = { focusedTabIndex = it },
                         accessoryItems = accessoryLayout,
-                        accessoryModifierState = ModifierState(),
-                        onAccessoryAction = overlayAccessoryAction,
-                        onChuchuKey = { chuchuKeys.togglePrefix() },
+                        onAccessoryAction = paletteAccessoryAction,
+                        onChuchuKey = {
+                            chuchuKeys.togglePrefix()
+                        },
                         chuchuKeyActive = chuchuKeys.isPrefixActive,
                         onOpenFiles = {
                             vm.selectConnectionTab(ConnectionTab.Files)
@@ -939,190 +977,6 @@ fun TerminalScreen(
     }
 }
 
-@Composable
-private fun TabSwitcherOverlay(
-    tabs: List<TabSession>,
-    activeTabId: String?,
-    focusedTabId: String?,
-    terminalFontSizeSp: Float,
-    accessoryItems: List<AccessoryKeyItem>,
-    accessoryModifierState: ModifierState,
-    onAccessoryAction: (AccessoryAction) -> Unit,
-    onChuchuKey: () -> Unit,
-    chuchuKeyActive: Boolean,
-    onOpenFiles: () -> Unit,
-    onOpenSettings: () -> Unit,
-    useSingleRowAccessoryBar: Boolean,
-    onSelectTab: (String) -> Unit,
-    onCloseTab: (String) -> Unit,
-    onAddTab: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val colors = ChuColors.current
-    val typography = ChuTypography.current
-    val labeledTabs = remember(tabs) {
-        tabs.map { tab -> tab to tabAlias(tab) }
-    }
-    AnimatedVisibility(visible = true, enter = fadeIn() + slideInVertically { it / 5 }, exit = fadeOut() + slideOutVertically { it / 4 }) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(colors.background)
-                .clickable { onDismiss() },
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.safeDrawing)
-                    .padding(vertical = 12.dp)
-                    .clickable(enabled = false) {},
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    ChuText("tabs", style = typography.title)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        ChuButton(onClick = onDismiss, variant = ChuButtonVariant.Outlined, bracketed = true, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
-                            ChuText("done", style = typography.label, color = colors.textMuted)
-                        }
-                        ChuButton(onClick = onAddTab, variant = ChuButtonVariant.Outlined, bracketed = true, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
-                            ChuText("+", style = typography.label, color = colors.accent)
-                        }
-                    }
-                }
-
-                val rows = remember(labeledTabs) { labeledTabs.chunked(2) }
-                androidx.compose.foundation.lazy.LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    items(rows.size) { rowIndex ->
-                        val row = rows[rowIndex]
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().height(208.dp)) {
-                            row.forEach { (tab, label) ->
-                                val isActive = tab.id == activeTabId
-                                val isFocused = tab.id == focusedTabId
-                                val state = tab.sessionState.value
-                                Column(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxHeight()
-                                        .background(if (isActive) colors.surface else colors.surfaceVariant)
-                                        .border(
-                                            1.dp,
-                                            when {
-                                                isFocused -> colors.accent
-                                                isActive -> colors.textPrimary
-                                                else -> colors.border.copy(alpha = 0.55f)
-                                            },
-                                        )
-                                        .clickable { onSelectTab(tab.id) },
-                                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        ChuText(label, style = typography.label, color = colors.textPrimary)
-                                        if (tabs.size > 1) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(26.dp)
-                                                    .clickable { onCloseTab(tab.id) },
-                                                contentAlignment = Alignment.Center,
-                                            ) {
-                                                ChuText("x", style = typography.label, color = colors.textMuted)
-                                            }
-                                        }
-                                    }
-                                    val previewBackground = if (isActive) {
-                                        colors.background.copy(alpha = 0.9f)
-                                    } else {
-                                        colors.background.copy(alpha = 0.75f)
-                                    }
-                                    val snapshot = state.snapshot
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .weight(1f)
-                                            .background(previewBackground)
-                                            .clickable { onSelectTab(tab.id) },
-                                    ) {
-                                        if (snapshot != null) {
-                                            TerminalCanvas(
-                                                snapshot = snapshot,
-                                                fontSizeSp = terminalFontSizeSp,
-                                                fitSnapshotToCanvas = true,
-                                                enableGestures = false,
-                                                cursorColor = Color.Transparent,
-                                                selectionBackgroundColor = Color.Transparent,
-                                                selectionForegroundColor = Color.Transparent,
-                                                onTap = { onSelectTab(tab.id) },
-                                                onPrimaryClick = { _, _ -> onSelectTab(tab.id) },
-                                                onScroll = {},
-                                                onZoom = {},
-                                                onSelectionChanged = { _, _, _, _ -> },
-                                                modifier = Modifier.fillMaxSize(),
-                                            )
-                                        } else {
-                                            Column(
-                                                modifier = Modifier.padding(8.dp),
-                                                verticalArrangement = Arrangement.spacedBy(4.dp),
-                                            ) {
-                                                ChuText(tab.spec.notificationLabel, style = typography.labelSmall, color = colors.textMuted)
-                                                ChuText("status: ${state.status}", style = typography.bodySmall, color = colors.textSecondary)
-                                                state.title?.let { ChuText(it, style = typography.bodySmall, color = colors.textPrimary) }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            if (row.size == 1) {
-                                Spacer(modifier = Modifier.weight(1f))
-                            }
-                        }
-                    }
-                }
-                KeyboardAccessoryBar(
-                    items = accessoryItems,
-                    modifierState = accessoryModifierState,
-                    onAction = onAccessoryAction,
-                    onChuchuKey = onChuchuKey,
-                    chuchuKeyActive = chuchuKeyActive,
-                    onOpenFiles = onOpenFiles,
-                    onSettings = onOpenSettings,
-                    useSingleRow = useSingleRowAccessoryBar,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
-                )
-            }
-        }
-    }
-}
-
-private fun tabAlias(tab: TabSession): String {
-    val adjectives = listOf(
-        "amber", "brisk", "cedar", "delta", "ember", "frost", "golden", "hazel",
-        "indigo", "jade", "kilo", "lunar", "mango", "nova", "onyx", "pluto",
-    )
-    val nouns = listOf(
-        "otter", "falcon", "pine", "river", "comet", "harbor", "meadow", "quartz",
-        "signal", "orbit", "anchor", "summit", "thunder", "voyager", "willow", "zenith",
-    )
-    val seed = tab.id.hashCode().let { if (it == Int.MIN_VALUE) 0 else kotlin.math.abs(it) }
-    val adjective = adjectives[seed % adjectives.size]
-    val noun = nouns[(seed / adjectives.size) % nouns.size]
-    return "$adjective-$noun"
-}
 
 @Composable
 private fun UploadProgressDialog(progress: UploadProgress) {
