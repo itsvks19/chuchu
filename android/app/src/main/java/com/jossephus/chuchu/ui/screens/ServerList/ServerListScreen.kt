@@ -38,6 +38,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -279,6 +280,7 @@ private fun HostCard(
     val maxSwipePx = with(density) { 132.dp.toPx() }
     val disconnectThresholdPx = with(density) { 72.dp.toPx() }
     val swipeOffsetX = remember(host.id) { Animatable(0f) }
+    val hostLabel = "> ${host.username}@${host.host}:${host.port}"
 
     LaunchedEffect(isConnected) {
         if (!isConnected) {
@@ -401,9 +403,12 @@ private fun HostCard(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             ChuText(
-                                "> ${host.username}@${host.host}:${host.port}",
+                                hostLabel,
                                 style = typography.body,
                                 color = colors.textSecondary,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                             if (host.transport == Transport.TailscaleSSH) {
                                 TuiBadge(
