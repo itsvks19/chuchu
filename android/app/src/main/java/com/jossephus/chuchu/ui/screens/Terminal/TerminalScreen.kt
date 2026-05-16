@@ -255,6 +255,9 @@ fun TerminalScreen(
     val screenInsetsModifier = modifier.windowInsetsPadding(WindowInsets.safeDrawing)
     var lastSessionStatus by remember { mutableStateOf<SessionStatus?>(null) }
     val settingsRepo = remember(context) { SettingsRepository.getInstance(context) }
+    val terminalPrefs = remember(context) {
+        context.getSharedPreferences("chuchu_terminal", Context.MODE_PRIVATE)
+    }
     val currentTheme by settingsRepo.themeName.collectAsStateWithLifecycle()
     val currentAccessoryLayoutIds by settingsRepo.accessoryLayoutIds.collectAsStateWithLifecycle()
     val useSingleRowAccessoryBar by settingsRepo.accessoryBarSingleRow.collectAsStateWithLifecycle()
@@ -499,17 +502,7 @@ fun TerminalScreen(
                             clipboard?.removePrimaryClipChangedListener(listener)
                         }
                     }
-                    val terminalPrefs = remember(context) {
-                        context.getSharedPreferences("chuchu_terminal", Context.MODE_PRIVATE)
-                    }
                     var modifierState by remember { mutableStateOf(ModifierState()) }
-                    var terminalFontSizeSp by remember {
-                        mutableStateOf(terminalPrefs.getFloat("terminal_font_size_sp", 14f).coerceAtLeast(0.1f))
-                    }
-
-                    LaunchedEffect(terminalFontSizeSp) {
-                        terminalPrefs.edit().putFloat("terminal_font_size_sp", terminalFontSizeSp).apply()
-                    }
 
                     fun resetModifiers() {
                         modifierState = modifierState.reset()
@@ -711,14 +704,6 @@ fun TerminalScreen(
                             }
                             if (pwdText != null) {
                                 ChuText(text = pwdText, style = typography.labelSmall, color = colors.textPrimary.copy(alpha = 0.7f))
-                            }
-                            ChuButton(
-                                onClick = { showTabSheet = true },
-                                variant = ChuButtonVariant.Outlined,
-                                bracketed = true,
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                            ) {
-                                ChuText("+", style = typography.label, color = colors.accent)
                             }
                         }
 
@@ -989,11 +974,17 @@ private fun TabSwitcherOverlay(
                 modifier = Modifier
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.safeDrawing)
-                    .padding(12.dp)
+                    .padding(vertical = 12.dp)
                     .clickable(enabled = false) {},
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     ChuText("tabs", style = typography.title)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         ChuButton(onClick = onDismiss, variant = ChuButtonVariant.Outlined, bracketed = true, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
@@ -1006,20 +997,31 @@ private fun TabSwitcherOverlay(
                 }
 
                 val rows = remember(labeledTabs) { labeledTabs.chunked(2) }
-                androidx.compose.foundation.lazy.LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                androidx.compose.foundation.lazy.LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
                     items(rows.size) { rowIndex ->
                         val row = rows[rowIndex]
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().height(208.dp)) {
                             row.forEach { (tab, label) ->
                                 val isActive = tab.id == activeTabId
+                                val isFocused = tab.id == focusedTabId
                                 val state = tab.sessionState.value
                                 Column(
                                     modifier = Modifier
                                         .weight(1f)
+                                        .fillMaxHeight()
                                         .background(if (isActive) colors.surface else colors.surfaceVariant)
                                         .border(
-                                            2.dp,
-                                            if (isActive) colors.accent else colors.border.copy(alpha = 0.55f),
+                                            1.dp,
+                                            when {
+                                                isFocused -> colors.accent
+                                                isActive -> colors.textPrimary
+                                                else -> colors.border.copy(alpha = 0.55f)
+                                            },
                                         )
                                         .clickable { onSelectTab(tab.id) },
                                     verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -1027,7 +1029,7 @@ private fun TabSwitcherOverlay(
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                                            .padding(horizontal = 6.dp, vertical = 2.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
@@ -1091,6 +1093,17 @@ private fun TabSwitcherOverlay(
                         }
                     }
                 }
+                KeyboardAccessoryBar(
+                    items = accessoryItems,
+                    modifierState = accessoryModifierState,
+                    onAction = onAccessoryAction,
+                    onChuchuKey = onChuchuKey,
+                    chuchuKeyActive = chuchuKeyActive,
+                    onOpenFiles = onOpenFiles,
+                    onSettings = onOpenSettings,
+                    useSingleRow = useSingleRowAccessoryBar,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
+                )
             }
         }
     }
