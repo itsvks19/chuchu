@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: #1a1b26;
+  color: #c0caf5;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+a {
+  color: #7aa2f7;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(122, 162, 247, 0.35);
+}
+
+a:hover {
+  text-decoration-color: #7aa2f7;
+}
+
+::selection {
+  background: rgba(187, 154, 247, 0.35);
+  color: #fff;
+}
+
+/* TUI section divider: ── LABEL ──────────────────────────── */
+.tui-rule {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #565f89;
+  margin: 1.75rem 0 1rem;
+}
+
+.tui-rule::before {
+  content: '──';
+}
+
+.tui-rule::after {
+  content: '';
+  flex: 1;
+  border-top: 1px dashed #2a2e44;
+}
+
+/* Powerline-ish status segment */
+.seg {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+/* Status bar — subtle tint so the colored segments read as highlights */
+.tui-bar {
+  background: rgba(42, 46, 68, 0.45);
+}
