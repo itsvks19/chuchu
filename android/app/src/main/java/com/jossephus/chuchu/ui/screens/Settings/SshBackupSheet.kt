@@ -35,6 +35,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -69,6 +71,7 @@ private sealed interface SheetStep {
 
     /** Show import preview summary before confirming. */
     data class ImportPreview(val plan: BackupImportPlan) : SheetStep
+
 }
 
 @Composable
@@ -101,6 +104,7 @@ internal fun SshBackupSheet(
         }
     }
     var localStep by remember { mutableStateOf<SheetStep>(SheetStep.Overview) }
+    var selectedKeyDetails by remember { mutableStateOf<SshKey?>(null) }
     val effectiveStep: SheetStep = step ?: localStep
 
     // SAF launchers – stay at composable scope
@@ -156,6 +160,10 @@ internal fun SshBackupSheet(
     }
 
     BackHandler(enabled = visible) {
+        if (selectedKeyDetails != null) {
+            selectedKeyDetails = null
+            return@BackHandler
+        }
         handleBack()
     }
 
@@ -207,7 +215,7 @@ internal fun SshBackupSheet(
                     verticalAlignment = Alignment.Top,
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        ChuText("ssh keys & backups", style = typography.headline)
+                        ChuText("ssh hosts & keys backup", style = typography.headline)
                         ChuText(
                             text = when (effectiveStep) {
                                 is SheetStep.Overview -> "Backup your SSH keys and server profiles."
@@ -223,7 +231,7 @@ internal fun SshBackupSheet(
                     ChuButton(
                         onClick = { handleDismiss() },
                         variant = ChuButtonVariant.Ghost,
-                        bracketed = true,
+                        bracketed = false,
                         borderColor = colors.textMuted,
                         contentPadding = PaddingValues(6.dp),
                     ) {
@@ -242,10 +250,10 @@ internal fun SshBackupSheet(
                     when (effectiveStep) {
                         is SheetStep.Overview -> OverviewContent(
                             keys = keys,
-                            hostCount = hosts.size,
                             busy = isBusy,
                             onExport = { localStep = SheetStep.ExportPassphrase },
                             onImport = { localStep = SheetStep.ImportPassphrase },
+                            onOpenKey = { key -> selectedKeyDetails = key },
                         )
 
                         is SheetStep.ExportPassphrase -> ExportPassphraseContent(
@@ -306,6 +314,7 @@ internal fun SshBackupSheet(
                                 localStep = SheetStep.Overview
                             },
                         )
+
                     }
 
                     // ── Status messages ────────────────────────────────────
@@ -363,6 +372,63 @@ internal fun SshBackupSheet(
                 }
             }
         }
+
+        AnimatedVisibility(
+            visible = visible && selectedKeyDetails != null,
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut(),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            val key = selectedKeyDetails ?: return@AnimatedVisibility
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(colors.background.copy(alpha = 0.40f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { selectedKeyDetails = null },
+                    ),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.55f)
+                        .background(colors.surfaceVariant)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {},
+                        )
+                        .windowInsetsPadding(WindowInsets.safeDrawing)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ChuText("ssh key details", style = typography.headline)
+                        ChuButton(
+                            onClick = { selectedKeyDetails = null },
+                            variant = ChuButtonVariant.Ghost,
+                            bracketed = false,
+                            borderColor = colors.textMuted,
+                            contentPadding = PaddingValues(6.dp),
+                        ) {
+                            ChuText("x", style = typography.label, color = colors.textMuted)
+                        }
+                    }
+
+                    KeyDetailsContent(
+                        key = key,
+                        onBack = { selectedKeyDetails = null },
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -371,43 +437,23 @@ internal fun SshBackupSheet(
 @Composable
 private fun OverviewContent(
     keys: List<SshKey>,
-    hostCount: Int,
     busy: Boolean,
     onExport: () -> Unit,
     onImport: () -> Unit,
+    onOpenKey: (SshKey) -> Unit,
 ) {
     val colors = ChuColors.current
     val typography = ChuTypography.current
 
-    ChuCard(modifier = Modifier.fillMaxWidth()) {
+    ChuCard(
+        modifier = Modifier.fillMaxWidth(),
+        background = colors.background,
+        border = colors.border,
+    ) {
         Column(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            // Summary row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    ChuText("ssh keys", style = typography.label)
-                    ChuText(
-                        text = if (keys.isEmpty()) "none" else "${keys.size} key(s)",
-                        style = typography.body,
-                        color = colors.textMuted,
-                    )
-                }
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    ChuText("host profiles", style = typography.label)
-                    ChuText(
-                        text = if (hostCount == 0) "none" else "$hostCount host(s)",
-                        style = typography.body,
-                        color = colors.textMuted,
-                    )
-                }
-            }
-
             // Key list (safe metadata only)
             if (keys.isNotEmpty()) {
                 ChuText(
@@ -415,8 +461,11 @@ private fun OverviewContent(
                     style = typography.labelSmall,
                     color = colors.textSecondary,
                 )
-                keys.forEach { key ->
-                    KeyInfoRow(key = key)
+                keys.forEachIndexed { index, key ->
+                    KeyInfoRow(key = key, onClick = { onOpenKey(key) })
+                    if (index < keys.lastIndex) {
+                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(colors.border))
+                    }
                 }
             } else {
                 ChuText(
@@ -463,13 +512,16 @@ private fun OverviewContent(
 // ── Key info row (safe metadata only) ──────────────────────────────────────────
 
 @Composable
-private fun KeyInfoRow(key: SshKey) {
+private fun KeyInfoRow(key: SshKey, onClick: () -> Unit) {
     val colors = ChuColors.current
     val typography = ChuTypography.current
     val shortPublic = publicKeyShortPrefix(key)
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -489,6 +541,43 @@ private fun KeyInfoRow(key: SshKey) {
                     )
                 }
             }
+        }
+        ChuText("view", style = typography.bodySmall, color = colors.accent)
+    }
+}
+
+@Composable
+private fun KeyDetailsContent(
+    key: SshKey,
+    onBack: () -> Unit,
+) {
+    val colors = ChuColors.current
+    val typography = ChuTypography.current
+    val clipboard = LocalClipboardManager.current
+
+    ChuCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            ChuText("name", style = typography.labelSmall, color = colors.textMuted)
+            ChuText(key.name, style = typography.label)
+            ChuText("public key", style = typography.labelSmall, color = colors.textMuted)
+            ChuText(key.publicKeyOpenSsh, style = typography.body)
+        }
+    }
+
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ChuButton(onClick = onBack, variant = ChuButtonVariant.Ghost, bracketed = true, modifier = Modifier.weight(1f)) {
+            ChuText("back", style = typography.label, color = colors.textMuted)
+        }
+        ChuButton(
+            onClick = { clipboard.setText(AnnotatedString(key.publicKeyOpenSsh)) },
+            variant = ChuButtonVariant.Outlined,
+            bracketed = true,
+            modifier = Modifier.weight(1f),
+        ) {
+            ChuText("copy public", style = typography.label, color = colors.accent)
         }
     }
 }

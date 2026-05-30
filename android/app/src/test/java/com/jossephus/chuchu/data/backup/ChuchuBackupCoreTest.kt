@@ -4,6 +4,7 @@ import com.jossephus.chuchu.model.AuthMethod
 import com.jossephus.chuchu.model.HostProfile
 import com.jossephus.chuchu.model.SshKey
 import com.jossephus.chuchu.model.Transport
+import com.jossephus.chuchu.service.backup.ChuchuBackupCodec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

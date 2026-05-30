@@ -257,14 +257,15 @@ private fun GeneralSettings(
     Spacer(modifier = Modifier.height(16.dp))
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ChuText("ssh keys & backups", style = typography.label)
+        ChuText("ssh hosts & keys backup", style = typography.label)
         ChuButton(
             onClick = onOpenBackup,
             variant = ChuButtonVariant.Outlined,
             bracketed = true,
+            modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
         ) {
             ChuText("manage", style = typography.label)

@@ -2,6 +2,7 @@ package com.jossephus.chuchu.data.backup
 
 import androidx.room.withTransaction
 import com.jossephus.chuchu.data.db.AppDatabase
+import com.jossephus.chuchu.service.backup.ChuchuBackupCodec
 import com.jossephus.chuchu.model.HostProfile
 import com.jossephus.chuchu.model.SshKey
 

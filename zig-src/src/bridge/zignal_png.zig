@@ -9,6 +9,7 @@ comptime {
     _ = @import("chuchu_snapshot.zig");
     _ = @import("chuchu_ssh.zig");
     _ = @import("chuchu_mosh.zig");
+    _ = @import("chuchu_backup.zig");
 }
 
 const c_allocator = std.heap.c_allocator;
