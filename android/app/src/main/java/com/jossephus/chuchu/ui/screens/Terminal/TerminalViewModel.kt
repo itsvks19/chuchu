@@ -115,6 +115,18 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         return target
     }
 
+    fun selectLocalShellTab(): TabSession? {
+        val existing =
+            sessionRepository.tabs.value.filter {
+                it.spec.hostId == null && it.spec.transport == Transport.LocalShell
+            }
+        if (existing.isEmpty()) return null
+        val activeId = sessionRepository.activeTabId.value
+        val target = existing.firstOrNull { it.id == activeId } ?: existing.last()
+        sessionRepository.selectTab(target.id)
+        return target
+    }
+
     fun openTab(spec: TabSpec): TabSession {
         refreshTailscaleStatus()
         return sessionRepository.openTab(spec)

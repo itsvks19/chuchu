@@ -85,7 +85,7 @@ fun CommandPalette(
   val context = LocalContext.current
   val view = LocalView.current
   val keyboardController = LocalSoftwareKeyboardController.current
-  val entries = remember(tabs) { tabs.map { it to terminalTabAlias(it) } }
+  val entries = remember(tabs) { tabs.map { it to terminalTabDisplayLabel(it) } }
   val maxIndex = (entries.size - 1).coerceAtLeast(0)
   LaunchedEffect(entries.size) { onFocusedTabIndexChange(focusedTabIndex.coerceIn(0, maxIndex)) }
   LaunchedEffect(activeTabId, entries) {

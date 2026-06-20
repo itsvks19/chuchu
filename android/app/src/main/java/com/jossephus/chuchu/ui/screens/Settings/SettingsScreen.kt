@@ -45,6 +45,7 @@ fun SettingsScreen(
     currentFont: String,
     appLockEnabled: Boolean,
     requireAuthOnConnect: Boolean,
+    localShellEnabled: Boolean,
     currentAccessoryLayoutIds: List<String>,
     accessoryBarSingleRow: Boolean,
     currentTerminalCustomKeyGroups: List<TerminalCustomKeyGroup>,
@@ -58,6 +59,7 @@ fun SettingsScreen(
     onFontSelected: (String) -> Unit,
     onAppLockEnabledChanged: (Boolean) -> Unit,
     onRequireAuthOnConnectChanged: (Boolean) -> Unit,
+    onLocalShellEnabledChanged: (Boolean) -> Unit,
     onAccessoryLayoutChanged: (List<String>) -> Unit,
     onAccessoryBarSingleRowChanged: (Boolean) -> Unit,
     currentTerminalFontSize: Float = 14f,
@@ -173,6 +175,8 @@ fun SettingsScreen(
                         onEditCustomActions = { showCustomActionEditor = true },
                         currentTabMode = currentTabMode,
                         onTabModeChanged = onTabModeChanged,
+                        localShellEnabled = localShellEnabled,
+                        onLocalShellEnabledChanged = onLocalShellEnabledChanged,
                     )
                 }
             }
@@ -274,7 +278,6 @@ private fun GeneralSettings(
             onClick = onOpenBackup,
             variant = ChuButtonVariant.Outlined,
             bracketed = true,
-            modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
         ) {
             ChuText("manage", style = typography.label)

@@ -12,6 +12,7 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -83,6 +84,8 @@ internal fun TerminalSettings(
     onEditCustomActions: () -> Unit,
     currentTabMode: TerminalTabMode = TerminalTabMode.Classic,
     onTabModeChanged: (TerminalTabMode) -> Unit = {},
+    localShellEnabled: Boolean = false,
+    onLocalShellEnabledChanged: (Boolean) -> Unit = {},
 ) {
     val colors = ChuColors.current
     val typography = ChuTypography.current
@@ -386,6 +389,33 @@ internal fun TerminalSettings(
                     "create quick keys.",
                     style = typography.body,
                     color = colors.textSecondary,
+                )
+            }
+        }
+
+        ChuCard(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .defaultMinSize(minHeight = 48.dp)
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    ChuText("enable local shell", style = typography.label)
+                    ChuText(
+                        "show the Android local shell shortcut on the server list",
+                        style = typography.bodySmall,
+                        color = colors.textMuted,
+                    )
+                }
+                ChuSwitch(
+                    checked = localShellEnabled,
+                    onCheckedChange = onLocalShellEnabledChanged,
                 )
             }
         }

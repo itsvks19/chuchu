@@ -58,6 +58,7 @@ fun ApplicationNavController() {
             val vm: ServerListViewModel = viewModel(factory = ServerListViewModel.factory(application))
             val settingsRepo = SettingsRepository.getInstance(application)
             val requireAuthOnConnect by settingsRepo.requireAuthOnConnect.collectAsStateWithLifecycle()
+            val localShellEnabled by settingsRepo.localShellEnabled.collectAsStateWithLifecycle()
             val hosts by vm.hosts.collectAsStateWithLifecycle()
             val searchQuery by vm.search.collectAsStateWithLifecycle()
             ServerListScreen(
@@ -65,6 +66,23 @@ fun ApplicationNavController() {
                 searchQuery = searchQuery,
                 onSearchChange = vm::updateSearchQuery,
                 onAddServer = { navController.navigate("servers/add") },
+                localShellEnabled = localShellEnabled,
+                onOpenLocalShell = localShell@{
+                    if (!localShellEnabled) return@localShell
+                    if (!requireAuthOnConnect) {
+                        navController.navigate("terminal/local")
+                    } else {
+                        requireUserVerification(
+                            context = context,
+                            title = "Verify to open local shell",
+                            subtitle = "Authenticate to open this device shell",
+                        ) { result ->
+                            if (result == VerificationResult.Success) {
+                                navController.navigate("terminal/local")
+                            }
+                        }
+                    }
+                },
                 onEditServer = { id -> navController.navigate("servers/edit/$id") },
                 onConnectServer = { id ->
                     val host = hosts.firstOrNull { it.id == id }
@@ -101,6 +119,7 @@ fun ApplicationNavController() {
             val accessoryBarSingleRow by settingsRepo.accessoryBarSingleRow.collectAsStateWithLifecycle()
             val customKeyGroups by settingsRepo.terminalCustomKeyGroups.collectAsStateWithLifecycle()
             val tabMode by settingsRepo.terminalTabMode.collectAsStateWithLifecycle()
+            val localShellEnabled by settingsRepo.localShellEnabled.collectAsStateWithLifecycle()
             val themeMode by settingsRepo.themeMode.collectAsStateWithLifecycle()
             val terminalFontSize by settingsRepo.terminalFontSize.collectAsStateWithLifecycle()
             val lightThemeName by settingsRepo.lightThemeName.collectAsStateWithLifecycle()
@@ -109,6 +128,7 @@ fun ApplicationNavController() {
                 currentFont = fontName,
                 appLockEnabled = appLockEnabled,
                 requireAuthOnConnect = requireAuthOnConnect,
+                localShellEnabled = localShellEnabled,
                 currentAccessoryLayoutIds = accessoryLayoutIds,
                 accessoryBarSingleRow = accessoryBarSingleRow,
                 currentTerminalCustomKeyGroups = customKeyGroups,
@@ -122,6 +142,7 @@ fun ApplicationNavController() {
                 onFontSelected = settingsRepo::setFont,
                 onAppLockEnabledChanged = settingsRepo::setAppLockEnabled,
                 onRequireAuthOnConnectChanged = settingsRepo::setRequireAuthOnConnect,
+                onLocalShellEnabledChanged = settingsRepo::setLocalShellEnabled,
                 onAccessoryLayoutChanged = settingsRepo::setAccessoryLayoutIds,
                 onAccessoryBarSingleRowChanged = settingsRepo::setAccessoryBarSingleRow,
                 currentTerminalFontSize = terminalFontSize,
@@ -153,6 +174,27 @@ fun ApplicationNavController() {
                 vm = vm,
                 onBack = { navController.popBackStack() },
             )
+        }
+        composable("terminal/local") {
+            val settingsRepo = SettingsRepository.getInstance(application)
+            val localShellEnabled by settingsRepo.localShellEnabled.collectAsStateWithLifecycle()
+            if (localShellEnabled) {
+                val vm: TerminalViewModel = viewModel(factory = TerminalViewModel.factory(application))
+                TerminalScreen(
+                    vm = vm,
+                    hostId = null,
+                    openLocalShell = true,
+                    onOpenSettings = { navController.navigate("settings") },
+                    onBack = { navController.popBackStack() },
+                )
+            } else {
+                LaunchedEffect(Unit) {
+                    val popped = navController.popBackStack("servers", inclusive = false)
+                    if (!popped) {
+                        navController.navigate("servers") { launchSingleTop = true }
+                    }
+                }
+            }
         }
         composable(
             route = "terminal/{id}",
