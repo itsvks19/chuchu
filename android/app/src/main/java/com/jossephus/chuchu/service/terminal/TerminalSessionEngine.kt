@@ -1,5 +1,6 @@
 package com.jossephus.chuchu.service.terminal
 
+import android.content.ClipData
 import android.util.Log
 import com.jossephus.chuchu.model.AuthMethod
 import com.jossephus.chuchu.model.MultiplexerType
@@ -19,6 +20,7 @@ import java.util.concurrent.Executors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -63,6 +65,7 @@ data class HostKeyPrompt(
 )
 
 class TerminalSessionEngine(
+    private val publishClipboardText: (String) -> Unit,
     private val scope: CoroutineScope,
     private val localShellService: NativeLocalShellService,
     private val hostKeyStore: HostKeyStore,
@@ -748,7 +751,7 @@ class TerminalSessionEngine(
                 when (event.eventType) {
                     MoshEventType.HostBytes.code -> {
                         if (event.payload.isNotEmpty() && handle != 0L) {
-                            bridge.nativeWriteRemote(handle, event.payload)
+                            feedRemoteChunk(event.payload)
                         }
                     }
                     MoshEventType.Resize.code -> {
@@ -1108,6 +1111,16 @@ class TerminalSessionEngine(
         }
     }
 
+    private fun publishClipboard(text: String) {
+        scope.launch(Dispatchers.Main.immediate) {
+            runCatching {
+                publishClipboardText(text)
+            }.onFailure { error ->
+                Log.w("TerminalSession", "OSC 52 clipboard update failed", error)
+            }
+        }
+    }
+
     private suspend fun sendStartupCommand(params: ConnectionParams) {
         val multiplexerCommand = params.multiplexerStartupCommand()?.trim().orEmpty()
         if (multiplexerCommand.isNotEmpty() && params.transport != Transport.Mosh) return
@@ -1221,12 +1234,16 @@ class TerminalSessionEngine(
             val snap = TerminalSnapshot.fromByteBuffer(raw, images)
             val nextTitle = bridge.nativePollTitle(handle)
             val nextPwd = bridge.nativePollPwd(handle)
+            val nextClipboard = bridge.nativePollClipboard(handle)
             val bellCount = bridge.nativeDrainBellCount(handle)
             if (nextTitle != null) {
                 title = nextTitle
             }
             if (nextPwd != null) {
                 pwd = nextPwd
+            }
+            if (nextClipboard != null) {
+                publishClipboard(nextClipboard.toString(Charsets.UTF_8))
             }
             _state.value =
                 _state.value.copy(

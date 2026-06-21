@@ -1,6 +1,8 @@
 package com.jossephus.chuchu.service.terminal
 
 import android.app.Application
+import android.content.ClipData
+import android.content.ClipboardManager
 import com.jossephus.chuchu.model.MultiplexerType
 import com.jossephus.chuchu.model.Transport
 import com.jossephus.chuchu.service.multiplexer.MultiplexerRegistry
@@ -28,12 +30,29 @@ import kotlinx.coroutines.sync.withLock
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TerminalSessionRepository private constructor(application: Application) {
+    private enum class Osc52ClipboardPolicy {
+        Deny,
+        AllowActiveForegroundSession,
+    }
+
     private val appContext = application.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val hostKeyStore =
         HostKeyStore(appContext.getSharedPreferences("host_keys", Application.MODE_PRIVATE))
     private val tailscaleStatusChecker = TailscaleStatusChecker(appContext)
+    private val clipboard = appContext.getSystemService(ClipboardManager::class.java)
+    private val osc52ClipboardPolicy = Osc52ClipboardPolicy.Deny
+
+    private fun publishTerminalClipboard(tabId: String, text: String) {
+        if (!canPublishTerminalClipboard(tabId)) return
+        clipboard?.setPrimaryClip(ClipData.newPlainText("terminal clipboard", text))
+    }
+
+    private fun canPublishTerminalClipboard(tabId: String): Boolean {
+        if (osc52ClipboardPolicy != Osc52ClipboardPolicy.AllowActiveForegroundSession) return false
+        return attachedClients > 0 && _activeTabId.value == tabId
+    }
 
     private val _tabs = MutableStateFlow<List<TabSession>>(emptyList())
     val tabs: StateFlow<List<TabSession>> = _tabs.asStateFlow()
@@ -168,6 +187,7 @@ class TerminalSessionRepository private constructor(application: Application) {
         preflightMutex.withLock {
             val engine =
                 TerminalSessionEngine(
+                    {},
                     scope,
                     newLocalShellService(),
                     hostKeyStore,
@@ -199,6 +219,7 @@ class TerminalSessionRepository private constructor(application: Application) {
         val id = UUID.randomUUID().toString()
         val engine =
             TerminalSessionEngine(
+                { text -> publishTerminalClipboard(id, text) },
                 scope,
                 newLocalShellService(),
                 hostKeyStore,
