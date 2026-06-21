@@ -307,7 +307,6 @@ fun TerminalScreen(
     var pendingTabSpec by remember { mutableStateOf<TabSpec?>(null) }
     var passphraseFromPicker by remember { mutableStateOf(false) }
     var showTabSheet by remember { mutableStateOf(false) }
-    var showServerPicker by remember { mutableStateOf(false) }
     var showGlobalTabManager by remember { mutableStateOf(false) }
     var hasSeenTabsForHost by remember(hostId, openLocalShell) { mutableStateOf(false) }
     var focusedTabIndex by remember { mutableStateOf(0) }
@@ -1011,7 +1010,7 @@ fun TerminalScreen(
                         modifier =
                             Modifier.fillMaxSize()
                                 .blur(
-                                    if (showTabSheet || showGlobalTabManager || showServerPicker) 10.dp
+                                    if (showTabSheet || showGlobalTabManager) 10.dp
                                     else 0.dp
                                 )
                                 .imePadding()
@@ -1733,28 +1732,11 @@ fun TerminalScreen(
         }
     }
 
-    BackHandler(enabled = showServerPicker) { showServerPicker = false }
     BackHandler(enabled = showGlobalTabManager) { showGlobalTabManager = false }
 
     // Strip mode overlays — hoisted outside the when block so they are
     // available from disconnected, error, connecting, and connected states.
     if (tabMode == TerminalTabMode.Strip) {
-        TerminalServerPicker(
-            visible = showServerPicker,
-            hosts = hosts,
-            loaded = hostsLoaded,
-            onHostSelected = { host ->
-                showServerPicker = false
-                pickerScope.launch(Dispatchers.IO) {
-                    val prepared = vm.prepareTabOpen(host)
-                    withContext(Dispatchers.Main) {
-                        openPreparedTab(prepared.spec, prepared.requiresVerification, true)
-                    }
-                }
-            },
-            onDismiss = { showServerPicker = false },
-        )
-
         TerminalTabManager(
             visible = showGlobalTabManager,
             tabs = tabs,
